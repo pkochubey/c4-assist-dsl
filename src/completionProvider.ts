@@ -127,7 +127,6 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
             }
         }
 
-        // Boolean values (after certain keywords)
         const booleanKeywords = ['metadata', 'description', 'opacity'];
         if (previousKeyword && booleanKeywords.includes(previousKeyword)) {
             const itemTrue = new vscode.CompletionItem('true', vscode.CompletionItemKind.Value);

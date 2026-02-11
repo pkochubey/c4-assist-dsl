@@ -1,8 +1,8 @@
 {
   "name": "c4-assist-dsl",
-  "displayName": "C4 Assist DSL - Structurizr Support",
-  "description": "Syntax highlighting and autocomplete for Structurizr DSL (C4 model)",
-  "version": "0.1.0",
+  "displayName": "C4 Assist DSL",
+  "description": "Syntax highlighting, autocomplete, validation, formatting, and refactoring support for Structurizr DSL (C4 model)",
+  "version": "0.2.0",
   "publisher": "pkochubey",
   "author": {
     "name": "Pavel Kochubey"
@@ -23,7 +23,8 @@
   "categories": [
     "Programming Languages",
     "Snippets",
-    "Linters"
+    "Linters",
+    "Formatters"
   ],
   "keywords": [
     "c4",
@@ -33,7 +34,11 @@
     "architecture",
     "diagram",
     "autocompletion",
-    "syntax-highlighting"
+    "syntax-highlighting",
+    "validation",
+    "formatting",
+    "diagnostics",
+    "refactoring"
   ],
   "activationEvents": [
     "onLanguage:structurizr-dsl"
@@ -67,6 +72,16 @@
           "type": "boolean",
           "default": true,
           "description": "Enable/disable autocomplete"
+        },
+        "c4AssistDsl.diagnostics.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable validation diagnostics"
+        },
+        "c4AssistDsl.formatting.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable document formatting"
         }
       }
     }
@@ -78,7 +93,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package --no-update-package-manager",
+    "package": "vsce package",
     "publish": "vsce publish --no-update-package-manager"
   },
   "devDependencies": {
