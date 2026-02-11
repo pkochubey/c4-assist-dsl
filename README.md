@@ -103,24 +103,6 @@ npm run package
 npm run publish
 ```
 
-## CI/CD
-
-The project uses GitHub Actions for automated building and publishing:
-
-- **Build workflow** (`.github/workflows/build.yml`) - builds the extension on every push to `main`/`develop` branches
-- **Publish workflow** (`.github/workflows/publish.yml`) - publishes to VS Code Marketplace when a version tag `v*` is pushed
-
-### Publishing a new version
-
-1. Update version in `package.json`
-2. Commit changes
-3. Create and push a version tag:
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-4. GitHub Actions will automatically build and publish the extension
-
 ## License
 
 MIT
