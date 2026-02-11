@@ -1,0 +1,92 @@
+{
+  "name": "c4-assist-dsl",
+  "displayName": "C4 Assist DSL - Structurizr Support",
+  "description": "Syntax highlighting and autocomplete for Structurizr DSL (C4 model)",
+  "version": "0.1.0",
+  "publisher": "pkochubey",
+  "author": {
+    "name": "Pavel Kochubey"
+  },
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkochubey/c4-assist-dsl.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pkochubey/c4-assist-dsl/issues"
+  },
+  "homepage": "https://github.com/pkochubey/c4-assist-dsl#readme",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Linters"
+  ],
+  "keywords": [
+    "c4",
+    "c4-model",
+    "structurizr",
+    "dsl",
+    "architecture",
+    "diagram",
+    "autocompletion",
+    "syntax-highlighting"
+  ],
+  "activationEvents": [
+    "onLanguage:structurizr-dsl"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "structurizr-dsl",
+        "aliases": [
+          "Structurizr DSL",
+          "structurizr"
+        ],
+        "extensions": [
+          ".dsl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "structurizr-dsl",
+        "scopeName": "source.structurizr-dsl",
+        "path": "./syntaxes/structurizr-dsl.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "C4 Assist DSL",
+      "properties": {
+        "c4AssistDsl.completion.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable autocomplete"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package --no-update-package-manager",
+    "publish": "vsce publish --no-update-package-manager"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.96.0",
+    "@types/node": "22.x",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "scopeName": "source.structurizr-dsl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#preprocessor" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#operators" },
+    { "include": "#constants" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.dsl",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "captures": { "0": { "name": "punctuation.definition.comment.begin.dsl" } }
+        },
+        {
+          "name": "comment.line.double-slash.dsl",
+          "match": "//.*$",
+          "captures": { "0": { "name": "punctuation.definition.comment.dsl" } }
+        },
+        {
+          "name": "comment.line.number-sign.dsl",
+          "match": "#.*$",
+          "captures": { "0": { "name": "punctuation.definition.comment.dsl" } }
+        }
+      ]
+    },
+
+    "preprocessor": {
+      "name": "meta.preprocessor.directive.dsl",
+      "match": "(!\\w+)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.directive.dsl support.function.dsl" }
+      }
+    },
+
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.element.workspace.dsl",
+          "match": "\\b(workspace|extends)\\b"
+        },
+        {
+          "name": "keyword.control.element.model.dsl",
+          "match": "\\b(model|configuration|views)\\b"
+        },
+        {
+          "name": "keyword.control.element.person.dsl",
+          "match": "\\b(person|personinstance)\\b"
+        },
+        {
+          "name": "keyword.control.element.software.dsl",
+          "match": "\\b(softwaresystem|softwaresysteminstance)\\b"
+        },
+        {
+          "name": "keyword.control.element.container.dsl",
+          "match": "\\b(container|containerinstance)\\b"
+        },
+        {
+          "name": "keyword.control.element.component.dsl",
+          "match": "\\b(component|componentinstance)\\b"
+        },
+        {
+          "name": "keyword.control.element.deployment.dsl",
+          "match": "\\b(deploymentenvironment|deploymentnode|deploymentgroup|infrastructurenode)\\b"
+        },
+        {
+          "name": "keyword.control.element.group.dsl",
+          "match": "\\b(element|group)\\b"
+        },
+        {
+          "name": "keyword.control.view.dsl",
+          "match": "\\b(systemlandscape|systemcontext|filtered|dynamic|custom|image|default|animation)\\b"
+        },
+        {
+          "name": "keyword.control.style.dsl",
+          "match": "\\b(styles|theme|themes|branding|terminology)\\b"
+        },
+        {
+          "name": "keyword.control.property.dsl",
+          "match": "\\b(description|tags|tag|url|properties|perspectives|technology|instances|metadata)\\b"
+        },
+        {
+          "name": "keyword.control.property.style.dsl",
+          "match": "\\b(shape|icon|width|height|background|color|stroke|strokeWidth|fontSize|border|opacity|routing|position|thickness|style)\\b"
+        },
+        {
+          "name": "keyword.control.property.other.dsl",
+          "match": "\\b(scope|visibility|users|healthCheck|archetypes|include|exclude|autoLayout|title)\\b"
+        },
+        {
+          "name": "keyword.control.special.dsl",
+          "match": "\\b(this|true|false)\\b"
+        },
+        {
+          "name": "keyword.control.find.dsl",
+          "match": "\\b(!element|!elements|!relationship|!relationships|!components|!docs|!adrs|!script|!plugin|!identifiers|!impliedRelationships|!include|!const|!var)\\b"
+        }
+      ]
+    },
+
+    "strings": {
+      "name": "string.quoted.double.dsl",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.dsl" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.dsl" } },
+      "patterns": [
+        {
+          "name": "constant.character.escape.dsl",
+          "match": "\\\\."
+        },
+        {
+          "name": "variable.other.interpolation.dsl",
+          "match": "\\$\\{[\\w]+\\}"
+        }
+      ]
+    },
+
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.dsl",
+          "match": "->"
+        },
+        {
+          "name": "punctuation.definition.block.begin.dsl",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.definition.block.end.dsl",
+          "match": "\\}"
+        },
+        {
+          "name": "keyword.operator.assignment.dsl",
+          "match": "="
+        }
+      ]
+    },
+
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.dsl",
+          "match": "\\b(tb|bt|lr|rl|solid|dashed|dotted|Direct|Orthogonal|Curved|private|public|landscape|softwaresystem|none)\\b"
+        },
+        {
+          "name": "constant.numeric.dsl",
+          "match": "\\b\\d+\\.?\\d*\\b"
+        },
+        {
+          "name": "support.constant.shape.dsl",
+          "match": "\\b(Box|RoundedBox|Circle|Ellipse|Hexagon|Cylinder|Pipe|Person|Robot|Folder|WebBrowser|MobileDevicePortrait|MobileDeviceLandscape|Component)\\b"
+        }
+      ]
+    },
+
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.object.dsl",
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    }
+  }
+}

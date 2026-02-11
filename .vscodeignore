@@ -1,0 +1,29 @@
+# Source files
+src/**
+**/*.ts
+**/*.map
+
+# VS Code
+.vscode/**
+.vscode-test/**
+
+# Config files
+.gitignore
+.eslintrc.json**
+tsconfig.json
+
+# Dependencies
+node_modules/**
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts
+*.vsix
+
+# Examples and tests
+example.dsl
+**/test/**
+
+# Git
+.git/**
