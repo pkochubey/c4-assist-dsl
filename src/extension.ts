@@ -5,6 +5,7 @@ import { DslDefinitionProvider } from './definitionProvider';
 import { DslRenameProvider } from './renameProvider';
 import { DslHoverProvider } from './hoverProvider';
 import { DslFormatterProvider } from './formatterProvider';
+import { getIncludeResolver } from './includeResolver';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Structurizr DSL extension is now active!');
@@ -38,6 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
     const documentSaveDisposable = vscode.workspace.onDidSaveTextDocument(doc => {
         if (doc.languageId === 'structurizr-dsl') {
             diagnosticProvider.validateDocument(doc);
+            getIncludeResolver().clearCache();
         }
     });
 

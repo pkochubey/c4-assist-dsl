@@ -1,5 +1,7 @@
 workspace "Example Workspace" "This is an example Structurizr DSL file" {
 
+    !include ./additional.dsl
+
     model {
         user = person "User"
         admin = person "Admin"

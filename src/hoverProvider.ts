@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { DslParser, ElementDefinition } from './dslParser';
 import { KEYWORD_DOCUMENTATION } from './keywordDocumentation';
+import { getIncludeResolver } from './includeResolver';
 
 /**
  * Provides hover documentation for Structurizr DSL elements
@@ -18,7 +19,7 @@ export class DslHoverProvider implements vscode.HoverProvider {
             return undefined;
         }
 
-        const parser = new DslParser(document.getText());
+        const parser = new DslParser(document.getText(), document.uri);
         const parsed = parser.parse();
 
         const wordRange = document.getWordRangeAtPosition(position, /[\w.]+/);
@@ -73,11 +74,19 @@ export class DslHoverProvider implements vscode.HoverProvider {
         );
 
         if (isReference) {
-            const definition = parsed.definitions.get(identifier);
+            const includeResolver = getIncludeResolver();
+            const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
 
-            if (definition) {
-                const markdown = this.buildElementMarkdown(definition, parsed);
-                return new vscode.Hover(markdown, hoverRange);
+            for (const doc of includedDocs) {
+                const includeParser = new DslParser(doc.content, doc.uri);
+                const includeParsed = includeParser.parse();
+
+                const includeDef = includeParsed.definitions.get(identifier);
+
+                if (includeDef) {
+                    const markdown = this.buildElementMarkdown(includeDef, includeParsed);
+                    return new vscode.Hover(markdown, hoverRange);
+                }
             }
         }
 

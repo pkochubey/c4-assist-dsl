@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 export interface ElementDefinition {
     identifier: string;
     type: string;
@@ -7,6 +9,7 @@ export interface ElementDefinition {
     line: number;
     startOffset: number;
     endOffset: number;
+    sourceUri?: vscode.Uri; // Source file URI (for cross-file definitions)
 }
 
 export interface ElementReference {
@@ -20,18 +23,26 @@ export interface ParsedDocument {
     definitions: Map<string, ElementDefinition>;
     references: ElementReference[];
     lines: string[];
+    includes: IncludeDirective[];
+}
+
+export interface IncludeDirective {
+    filePath: string;
+    line: number;
+    startOffset: number;
+    endOffset: number;
 }
 
 /**
  * Parser for extracting element definitions and references from DSL
  */
 export class DslParser {
-    private text: string;
     private lines: string[];
+    private sourceUri?: vscode.Uri;
 
-    constructor(text: string) {
-        this.text = text;
+    constructor(text: string, sourceUri?: vscode.Uri) {
         this.lines = text.split('\n');
+        this.sourceUri = sourceUri;
     }
 
     /**
@@ -40,6 +51,7 @@ export class DslParser {
     parse(): ParsedDocument {
         const definitions = new Map<string, ElementDefinition>();
         const references: ElementReference[] = [];
+        const includes: IncludeDirective[] = [];
         let currentOffset = 0;
 
         for (let lineNum = 0; lineNum < this.lines.length; lineNum++) {
@@ -50,11 +62,12 @@ export class DslParser {
             this.parseDefinition(line, lineNum, lineStartOffset, definitions);
             this.parseRelationshipReferences(line, lineNum, lineStartOffset, references);
             this.parseViewReferences(line, lineNum, lineStartOffset, references);
+            this.parseInclude(line, lineNum, lineStartOffset, includes);
 
-            currentOffset = lineEndOffset + 1; // +1 for newline
+            currentOffset = lineEndOffset + 1;
         }
 
-        return { definitions, references, lines: this.lines };
+        return { definitions, references, lines: this.lines, includes };
     }
 
     /**
@@ -99,7 +112,32 @@ export class DslParser {
                 technology,
                 line: lineNum + 1,
                 startOffset,
-                endOffset
+                endOffset,
+                sourceUri: this.sourceUri
+            });
+        }
+    }
+
+    /**
+     * Parse !include directives
+     * Pattern: !include "filename.dsl" or !include filename.dsl
+     */
+    private parseInclude(
+        line: string,
+        lineNum: number,
+        lineStartOffset: number,
+        includes: IncludeDirective[]
+    ): void {
+        const trimmed = line.trim();
+        const includeMatch = trimmed.match(/^!include\s+(?:"([^"]+)"|(\S+))/);
+
+        if (includeMatch) {
+            const includedPath = includeMatch[1] || includeMatch[2];
+            includes.push({
+                filePath: includedPath,
+                line: lineNum + 1,
+                startOffset: lineStartOffset,
+                endOffset: lineStartOffset + line.length
             });
         }
     }
@@ -114,6 +152,12 @@ export class DslParser {
         lineStartOffset: number,
         references: ElementReference[]
     ): void {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('!include')) {
+            return;
+        }
+
         const relationshipPattern = /(\w+)\s*->\s*(\w+)/g;
         let match;
 
@@ -145,6 +189,12 @@ export class DslParser {
         lineStartOffset: number,
         references: ElementReference[]
     ): void {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('!include')) {
+            return;
+        }
+
         const viewPattern = /(systemcontext|systemlandscape|container|component|filtered|dynamic|deployment|custom|image)\s+(\w+)/gi;
         let match;
 

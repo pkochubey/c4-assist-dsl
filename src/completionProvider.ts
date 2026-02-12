@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DslContextParser, ParsedContext } from './dslContext';
+import { DslParser } from './dslParser';
 import {
     KEYWORDS_BY_CONTEXT,
     SHAPE_VALUES,
@@ -9,6 +10,7 @@ import {
     SCOPE_VALUES,
     VISIBILITY_VALUES,
 } from './dslData';
+import { getIncludeResolver } from './includeResolver';
 
 export class DslCompletionProvider implements vscode.CompletionItemProvider {
 
@@ -37,17 +39,17 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         if (parsedContext.inRelationship) {
-            return this.getElementIdentifierCompletion(document, offset, currentWord);
+            return await this.getElementIdentifierCompletion(document, offset, currentWord);
         }
 
-        return this.getKeywordCompletion(parsedContext, currentWord, document);
+        return await this.getKeywordCompletion(parsedContext, currentWord, document);
     }
 
-    private getKeywordCompletion(
+    private async getKeywordCompletion(
         parsedContext: ParsedContext,
         currentWord: string,
         document: vscode.TextDocument
-    ): vscode.CompletionItem[] {
+    ): Promise<vscode.CompletionItem[]> {
         const items: vscode.CompletionItem[] = [];
         const keywords = KEYWORDS_BY_CONTEXT[parsedContext.context] || [];
 
@@ -63,7 +65,8 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
         items.push(...this.getSpecialValueCompletions(parsedContext));
 
         if (this.requiresIdentifier(parsedContext)) {
-            items.push(...this.getElementIdentifierCompletion(document, document.offsetAt(vscode.window.activeTextEditor!.selection.active), currentWord));
+            const identifierItems = await this.getElementIdentifierCompletion(document, document.offsetAt(vscode.window.activeTextEditor!.selection.active), currentWord);
+            items.push(...identifierItems);
         }
 
         if (currentWord) {
@@ -154,11 +157,11 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
         return false;
     }
 
-    private getElementIdentifierCompletion(
+    private async getElementIdentifierCompletion(
         document: vscode.TextDocument,
         offset: number,
         currentWord: string
-    ): vscode.CompletionItem[] {
+    ): Promise<vscode.CompletionItem[]> {
         const items: vscode.CompletionItem[] = [];
         const text = document.getText();
 
@@ -183,10 +186,29 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
             }
         }
 
+        const includeResolver = getIncludeResolver();
+        const includedDocs = await includeResolver.getIncludedDocuments(document.uri, text);
+
+        for (const doc of includedDocs) {
+            const parser = new DslParser(doc.content, doc.uri);
+            const parsed = parser.parse();
+
+            for (const [identifier, definition] of parsed.definitions) {
+                identifiers.add(identifier);
+                const item = new vscode.CompletionItem(identifier, vscode.CompletionItemKind.Reference);
+                item.detail = `${definition.type} (from ${doc.uri.fsPath})`;
+                item.sortText = `2_${identifier}`;
+                items.push(item);
+            }
+        }
+
         for (const id of identifiers) {
-            const item = new vscode.CompletionItem(id, vscode.CompletionItemKind.Reference);
-            item.sortText = `2_${id}`;
-            items.push(item);
+            const existingItem = items.find(item => item.label === id);
+            if (!existingItem) {
+                const item = new vscode.CompletionItem(id, vscode.CompletionItemKind.Reference);
+                item.sortText = `2_${id}`;
+                items.push(item);
+            }
         }
 
         const specialIds = ['*', 'this'];

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DslParser, ElementDefinition, ParsedDocument } from './dslParser';
+import { getIncludeResolver } from './includeResolver';
 
 /**
  * Diagnostic provider for Structurizr DSL validation
@@ -25,11 +26,26 @@ export class DslDiagnosticProvider {
         }
 
         const diagnostics: vscode.Diagnostic[] = [];
-        const parser = new DslParser(document.getText());
+        const parser = new DslParser(document.getText(), document.uri);
         const parsed = parser.parse();
 
+        const includeResolver = getIncludeResolver();
+        const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
+        const allDefinitions = new Map<string, ElementDefinition>(parsed.definitions);
+
+        for (const doc of includedDocs) {
+            const includeParser = new DslParser(doc.content, doc.uri);
+            const includeParsed = includeParser.parse();
+
+            for (const [identifier, definition] of includeParsed.definitions) {
+                if (!allDefinitions.has(identifier)) {
+                    allDefinitions.set(identifier, definition);
+                }
+            }
+        }
+
         diagnostics.push(...this.checkDuplicateIdentifiers(parsed));
-        diagnostics.push(...this.checkUndefinedReferences(parsed));
+        diagnostics.push(...this.checkUndefinedReferences(parsed, allDefinitions));
         diagnostics.push(...this.checkSyntaxPatterns(document));
 
         this.diagnostics.set(document.uri, diagnostics);
@@ -65,11 +81,13 @@ export class DslDiagnosticProvider {
     /**
      * Check for references to undefined elements
      */
-    private checkUndefinedReferences(parsed: ParsedDocument): vscode.Diagnostic[] {
+    private checkUndefinedReferences(
+        parsed: ParsedDocument,
+        allDefinitions: Map<string, ElementDefinition>
+    ): vscode.Diagnostic[] {
         const diagnostics: vscode.Diagnostic[] = [];
-        const definedIdentifiers = new Set(parsed.definitions.keys());
+        const definedIdentifiers = new Set(allDefinitions.keys());
 
-        // Add special identifiers that are always valid
         const specialIdentifiers = ['*', 'this', 'true', 'false'];
         specialIdentifiers.forEach(id => definedIdentifiers.add(id));
 
