@@ -108,7 +108,14 @@ export class DslFormatterProvider implements vscode.DocumentFormattingEditProvid
         const indent = indentChar.repeat(depth * indentSize);
 
         let formatted = line.replace(/\s+/g, ' ');
-        formatted = formatted.replace(/\s*->\s*/g, ' -> ');
+
+        // Format -> but don't add leading space if line starts with ->
+        if (formatted.startsWith('->')) {
+            formatted = '->' + formatted.substring(2).replace(/^\s+/, ' ');
+        } else {
+            formatted = formatted.replace(/\s*->\s*/g, ' -> ');
+        }
+
         formatted = formatted.replace(/\s*=\s*/g, ' = ');
         formatted = formatted.replace(/\{\s+/, '{ ');
         formatted = formatted.replace(/\s+\}/g, ' }');

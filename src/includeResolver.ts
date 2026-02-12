@@ -1,12 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-
-export interface IncludeDirective {
-    filePath: string;
-    line: number;
-    startOffset: number;
-    endOffset: number;
-}
+import { IncludeDirective } from './dslParser';
 
 export interface IncludedDocument {
     uri: vscode.Uri;

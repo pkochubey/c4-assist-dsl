@@ -1,6 +1,5 @@
 import {
     ContextType,
-    KEYWORDS_BY_CONTEXT,
     ALL_KEYWORDS
 } from './dslData';
 
@@ -13,48 +12,94 @@ export interface ParsedContext {
     identifierStack: string[];
 }
 
-/**
- * Parse DSL text to determine the context at a given position
- */
+interface StackFrame {
+    context: ContextType;
+    keyword: string;
+}
+
+// ============================================================================
+// Keyword to Context Mapping
+// ============================================================================
+
+const KEYWORD_CONTEXT_MAP: Record<string, ContextType> = {
+    'workspace': ContextType.Workspace,
+    'model': ContextType.Model,
+    'views': ContextType.Views,
+    'person': ContextType.Person,
+    'personinstance': ContextType.Person,
+    'softwaresystem': ContextType.SoftwareSystem,
+    'softwaresysteminstance': ContextType.SoftwareSystemInstance,
+    'container': ContextType.Container,
+    'containerinstance': ContextType.ContainerInstance,
+    'component': ContextType.Component,
+    'deploymentenvironment': ContextType.DeploymentEnvironment,
+    'deploymentnode': ContextType.DeploymentNode,
+    'infrastructurenode': ContextType.DeploymentNode,
+    'configuration': ContextType.Configuration,
+    'styles': ContextType.Styles,
+    'element': ContextType.ElementStyle,
+    'relationship': ContextType.RelationshipStyle,
+    'group': ContextType.Group,
+    'properties': ContextType.Properties,
+    'perspectives': ContextType.Perspectives,
+    'systemlandscape': ContextType.SystemLandscapeView,
+    'systemcontext': ContextType.SystemContextView,
+    'filtered': ContextType.FilteredView,
+    'dynamic': ContextType.DynamicView,
+    'deployment': ContextType.DeploymentView,
+    'custom': ContextType.CustomView,
+    'image': ContextType.CustomView,
+    'branding': ContextType.Configuration,
+    'terminology': ContextType.Configuration,
+    'archetypes': ContextType.Model,
+    'users': ContextType.Configuration,
+    'animation': ContextType.SystemLandscapeView,
+};
+
+// ============================================================================
+// DSL Context Parser
+// ============================================================================
+
 export class DslContextParser {
-    private text: string;
-    private position: number;
+    constructor(private readonly text: string, private readonly position: number) {}
 
-    constructor(text: string, position: number) {
-        this.text = text;
-        this.position = position;
-    }
-
-    /**
-     * Get the context at the current position
-     */
     getContext(): ParsedContext {
         const textBeforePosition = this.text.substring(0, this.position);
 
         if (this.isInStringLiteral(textBeforePosition)) {
-            return {
-                context: ContextType.Global,
-                blockLevel: 0,
-                inRelationship: false,
-                inStringLiteral: true,
-                identifierStack: []
-            };
+            return this.createContext(ContextType.Global, 0, false, true, []);
         }
 
-        const parsed = this.parseTextBeforePosition(textBeforePosition);
-        return parsed;
+        return this.parseTextContext(textBeforePosition);
     }
 
-    /**
-     * Check if position is inside a string literal
-     */
+    private createContext(
+        context: ContextType,
+        blockLevel: number,
+        inRelationship: boolean,
+        inStringLiteral: boolean,
+        identifierStack: string[],
+        previousKeyword?: string
+    ): ParsedContext {
+        return {
+            context,
+            blockLevel,
+            inRelationship,
+            inStringLiteral,
+            previousKeyword,
+            identifierStack
+        };
+    }
+
+    // ========================================================================
+    // String Literal Detection
+    // ========================================================================
+
     private isInStringLiteral(text: string): boolean {
         let inString = false;
         let escapeNext = false;
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-
+        for (const char of text) {
             if (escapeNext) {
                 escapeNext = false;
                 continue;
@@ -73,22 +118,18 @@ export class DslContextParser {
         return inString;
     }
 
-    /**
-     * Parse text before cursor position
-     */
-    private parseTextBeforePosition(text: string): ParsedContext {
+    // ========================================================================
+    // Text Context Parsing
+    // ========================================================================
+
+    private parseTextContext(text: string): ParsedContext {
         const tokens = this.tokenize(text);
-        const stack: { context: ContextType; keyword: string }[] = [];
+        const stack: StackFrame[] = [{ context: ContextType.Global, keyword: '' }];
         let blockLevel = 0;
         let inRelationship = false;
         let previousKeyword: string | undefined;
 
-        stack.push({ context: ContextType.Global, keyword: '' });
-
-        for (let i = 0; i < tokens.length; i++) {
-            const token = tokens[i];
-            const prevToken = i > 0 ? tokens[i - 1] : '';
-
+        for (const token of tokens) {
             if (token === '{') {
                 blockLevel++;
                 if (previousKeyword) {
@@ -104,42 +145,36 @@ export class DslContextParser {
             } else if (token === '->') {
                 inRelationship = true;
             } else if (this.isKeyword(token)) {
-                if (token.startsWith('!')) {
-                    previousKeyword = token;
-                } else {
-                    previousKeyword = token;
-                    if (this.isViewKeyword(token)) {
-                    }
-                }
+                previousKeyword = token;
                 inRelationship = false;
             }
         }
 
         const currentContext = stack[stack.length - 1].context;
-
-        return {
-            context: currentContext,
+        return this.createContext(
+            currentContext,
             blockLevel,
             inRelationship,
-            inStringLiteral: false,
-            previousKeyword,
-            identifierStack: stack.map(s => s.keyword)
-        };
+            false,
+            stack.map(s => s.keyword),
+            previousKeyword
+        );
     }
 
-    /**
-     * Tokenize DSL text
-     */
-    private tokenize(text: string): string[] {
-        text = this.removeComments(text);
+    // ========================================================================
+    // Tokenization
+    // ========================================================================
 
+    private tokenize(text: string): string[] {
+        const withoutComments = this.removeComments(text);
         const tokens: string[] = [];
         let current = '';
         let inString = false;
         let escapeNext = false;
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
+        for (let i = 0; i < withoutComments.length; i++) {
+            const char = withoutComments[i];
+            const nextChar = withoutComments[i + 1];
 
             if (escapeNext) {
                 current += char;
@@ -164,76 +199,69 @@ export class DslContextParser {
                 continue;
             }
 
-            if (char === '-' && i + 1 < text.length && text[i + 1] === '>') {
-                if (current.trim()) {
-                    tokens.push(current.trim());
-                    current = '';
-                }
+            // Handle arrow token '->'
+            if (char === '-' && nextChar === '>') {
+                this.flushToken(tokens, current);
                 tokens.push('->');
-                i++;
+                i++; // Skip '>'
+                current = '';
                 continue;
             }
 
-            if (char === '{' || char === '}' || char === '=') {
-                if (current.trim()) {
-                    tokens.push(current.trim());
-                    current = '';
-                }
+            // Handle special single-char tokens
+            if (this.isSpecialToken(char)) {
+                this.flushToken(tokens, current);
                 tokens.push(char);
+                current = '';
                 continue;
             }
 
-            if (/\s/.test(char)) {
-                if (current.trim()) {
-                    tokens.push(current.trim());
-                    current = '';
-                }
+            // Handle whitespace
+            if (this.isWhitespace(char)) {
+                this.flushToken(tokens, current);
+                current = '';
                 continue;
             }
 
             current += char;
         }
 
-        if (current.trim()) {
-            tokens.push(current.trim());
-        }
-
+        this.flushToken(tokens, current);
         return tokens;
     }
 
-    /**
-     * Remove comments from text
-     */
-    private removeComments(text: string): string {
-        text = text.replace(/\/\*[\s\S]*?\*\//g, '');
-        text = text.replace(/#[^\n]*/g, '');
-        text = text.replace(/\/\/[^\n]*/g, '');
-        return text;
+    private flushToken(tokens: string[], current: string): void {
+        const trimmed = current.trim();
+        if (trimmed) {
+            tokens.push(trimmed);
+        }
     }
 
-    /**
-     * Check if token is a keyword
-     */
+    private isSpecialToken(char: string): boolean {
+        return ['{', '}', '='].includes(char);
+    }
+
+    private isWhitespace(char: string): boolean {
+        return /\s/.test(char);
+    }
+
+    private removeComments(text: string): string {
+        return text
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/#[^\n]*/g, '')
+            .replace(/\/\/[^\n]*/g, '');
+    }
+
+    // ========================================================================
+    // Keyword Utilities
+    // ========================================================================
+
     private isKeyword(token: string): boolean {
         if (!token) return false;
         if (token.startsWith('!')) return true;
         return ALL_KEYWORDS.has(token.toLowerCase());
     }
 
-    /**
-     * Check if token is a view keyword
-     */
-    private isViewKeyword(token: string): boolean {
-        const viewKeywords = [
-            'systemLandscape', 'systemContext', 'container',
-            'component', 'filtered', 'dynamic', 'deployment', 'custom', 'image'
-        ];
-        return viewKeywords.includes(token);
-    }
-
-    /**
-     * Get context type from keyword and parent context
-     */
     private getContextFromKeyword(keyword: string, parentContext: ContextType): ContextType {
         const lowerKeyword = keyword.toLowerCase();
 
@@ -241,52 +269,19 @@ export class DslContextParser {
             return parentContext;
         }
 
-        const keywordContextMap: Record<string, ContextType> = {
-            'workspace': ContextType.Workspace,
-            'model': ContextType.Model,
-            'views': ContextType.Views,
-            'person': ContextType.Person,
-            'personinstance': ContextType.Person,
-            'softwaresystem': ContextType.SoftwareSystem,
-            'softwaresysteminstance': ContextType.SoftwareSystemInstance,
-            'container': ContextType.Container,
-            'containerinstance': ContextType.ContainerInstance,
-            'component': ContextType.Component,
-            'deploymentenvironment': ContextType.DeploymentEnvironment,
-            'deploymentnode': ContextType.DeploymentNode,
-            'infrastructurenode': ContextType.DeploymentNode,
-            'configuration': ContextType.Configuration,
-            'styles': ContextType.Styles,
-            'element': ContextType.ElementStyle,
-            'relationship': ContextType.RelationshipStyle,
-            'group': ContextType.Group,
-            'properties': ContextType.Properties,
-            'perspectives': ContextType.Perspectives,
-            'systemlandscape': ContextType.SystemLandscapeView,
-            'systemcontext': ContextType.SystemContextView,
-            'filtered': ContextType.FilteredView,
-            'dynamic': ContextType.DynamicView,
-            'deployment': ContextType.DeploymentView,
-            'custom': ContextType.CustomView,
-            'image': ContextType.CustomView,
-            'branding': ContextType.Configuration,
-            'terminology': ContextType.Configuration,
-            'archetypes': ContextType.Model,
-            'users': ContextType.Configuration,
-            'animation': ContextType.SystemLandscapeView,
-        };
-
+        // Special handling for Views context
         if (parentContext === ContextType.Views) {
             if (lowerKeyword === 'container') return ContextType.ContainerView;
             if (lowerKeyword === 'component') return ContextType.ComponentView;
         }
 
-        return keywordContextMap[lowerKeyword] || parentContext;
+        return KEYWORD_CONTEXT_MAP[lowerKeyword] ?? parentContext;
     }
 
-    /**
-     * Get current word being typed (for filtering)
-     */
+    // ========================================================================
+    // Static Utilities
+    // ========================================================================
+
     static getCurrentWord(text: string, position: number): string {
         const textBeforePosition = text.substring(0, position);
         const match = textBeforePosition.match(/[\w!]+$/);

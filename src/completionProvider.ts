@@ -9,162 +9,304 @@ import {
     ROUTING_STYLES,
     SCOPE_VALUES,
     VISIBILITY_VALUES,
+    KeywordInfo
 } from './dslData';
 import { getIncludeResolver } from './includeResolver';
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+const ELEMENT_TYPE_KEYWORDS = [
+    'person', 'personInstance',
+    'softwareSystem', 'softwareSystemInstance',
+    'container', 'containerInstance',
+    'component',
+    'deploymentNode', 'infrastructureNode',
+    'element'
+] as const;
+
+const KEYWORDS_AFTER_EQUALS = ['user', 'users', 'group', 'in', 'of'] as const;
+const KEYWORDS_REQUIRING_IDENTIFIER = ['systemcontext', 'container', 'component', 'filtered', 'dynamic', 'deployment', 'image'] as const;
+const KEYWORDS_WITH_BOOLEAN_VALUES = ['metadata', 'description', 'opacity'] as const;
+
+const SPECIAL_IDENTIFIERS = ['*', 'this'] as const;
+const COMMON_TAGS = ['Element', 'Person', 'Software System', 'Container', 'Component'] as const;
+
+// ============================================================================
+// Completion Item Factory
+// ============================================================================
+
+class CompletionItemFactory {
+    createKeyword(keywordInfo: KeywordInfo): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(keywordInfo.keyword, vscode.CompletionItemKind.Keyword);
+        item.detail = keywordInfo.detail;
+        item.documentation = new vscode.MarkdownString(keywordInfo.description);
+        item.insertText = keywordInfo.insertText || keywordInfo.keyword;
+        item.sortText = `0_${keywordInfo.keyword}`;
+        return item;
+    }
+
+    createElementType(type: string): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(type, vscode.CompletionItemKind.Class);
+        item.detail = `Element type: ${type}`;
+        item.documentation = new vscode.MarkdownString(`Reference to a ${type} element`);
+        item.sortText = `0_${type}`;
+        return item;
+    }
+
+    createEnumMember(value: string): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.EnumMember);
+        item.sortText = `1_${value}`;
+        return item;
+    }
+
+    createConstant(name: string): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant);
+        item.sortText = `0_${name}`;
+        return item;
+    }
+
+    createReference(identifier: string, detail?: string): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(identifier, vscode.CompletionItemKind.Reference);
+        if (detail) {
+            item.detail = detail;
+        }
+        item.sortText = `2_${identifier}`;
+        return item;
+    }
+
+    createValue(value: string): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.Value);
+        item.sortText = `1_${value}`;
+        return item;
+    }
+}
+
+// ============================================================================
+// Main Completion Provider
+// ============================================================================
+
 export class DslCompletionProvider implements vscode.CompletionItemProvider {
+    private readonly factory = new CompletionItemFactory();
 
     async provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken,
         _context: vscode.CompletionContext
-    ): Promise<vscode.CompletionItem[]> {
-        const config = vscode.workspace.getConfiguration('c4AssistDsl');
-        const enabled = config.get<boolean>('completion.enable', true);
-
-        if (!enabled) {
-            return [];
+    ): Promise<vscode.CompletionList | vscode.CompletionItem[]> {
+        if (!this.isCompletionEnabled()) {
+            return new vscode.CompletionList([], false);
         }
 
+        const parseResult = this.parseDocumentContext(document, position);
+        if (this.shouldSuppressCompletion(parseResult)) {
+            return new vscode.CompletionList([], false);
+        }
+
+        const items = await this.buildCompletionItems(document, parseResult);
+        return new vscode.CompletionList(items, false);
+    }
+
+    // ========================================================================
+    // Context Parsing
+    // ========================================================================
+
+    private isCompletionEnabled(): boolean {
+        const config = vscode.workspace.getConfiguration('c4AssistDsl');
+        return config.get<boolean>('completion.enable', true);
+    }
+
+    private parseDocumentContext(document: vscode.TextDocument, position: vscode.Position) {
         const text = document.getText();
         const offset = document.offsetAt(position);
+        const lineText = document.lineAt(position.line).text;
+        const textBeforeCursor = lineText.substring(0, position.character);
+        const isLineEmpty = /^\s*$/.test(textBeforeCursor);
 
         const parser = new DslContextParser(text, offset);
-        const parsedContext = parser.getContext();
+        const context = parser.getContext();
         const currentWord = DslContextParser.getCurrentWord(text, offset);
 
-        if (parsedContext.inStringLiteral) {
-            return this.getStringCompletion(parsedContext, currentWord);
-        }
-
-        if (parsedContext.inRelationship) {
-            return await this.getElementIdentifierCompletion(document, offset, currentWord);
-        }
-
-        return await this.getKeywordCompletion(parsedContext, currentWord, document);
+        return { text, offset, context, currentWord, isLineEmpty };
     }
 
-    private async getKeywordCompletion(
-        parsedContext: ParsedContext,
-        currentWord: string,
-        document: vscode.TextDocument
+    private shouldSuppressCompletion(parseResult: {
+        isLineEmpty: boolean;
+        currentWord: string;
+        context: ParsedContext;
+    }): boolean {
+        const { isLineEmpty, currentWord, context } = parseResult;
+        return isLineEmpty && !currentWord && !context.inStringLiteral && !context.inRelationship;
+    }
+
+    // ========================================================================
+    // Items Building
+    // ========================================================================
+
+    private async buildCompletionItems(
+        document: vscode.TextDocument,
+        parseResult: { context: ParsedContext; currentWord: string; offset: number }
     ): Promise<vscode.CompletionItem[]> {
-        const items: vscode.CompletionItem[] = [];
-        const keywords = KEYWORDS_BY_CONTEXT[parsedContext.context] || [];
+        const { context, currentWord, offset } = parseResult;
+        const itemsMap = new Map<string, vscode.CompletionItem>();
+
+        if (context.inStringLiteral) {
+            return this.getStringCompletionItems(context, currentWord);
+        }
+
+        if (context.inRelationship) {
+            return this.getElementCompletionItems(document, offset, currentWord);
+        }
+
+        this.addKeywordItems(itemsMap, context);
+        this.addSpecialValueItems(itemsMap, context);
+
+        await this.addIdentifierItems(itemsMap, context, document, currentWord);
+
+        const items = Array.from(itemsMap.values());
+        return this.filterByCurrentWord(items, currentWord);
+    }
+
+    private filterByCurrentWord(items: vscode.CompletionItem[], currentWord: string): vscode.CompletionItem[] {
+        if (!currentWord) return items;
+        return items.filter(item =>
+            item.label.toString().toLowerCase().startsWith(currentWord.toLowerCase())
+        );
+    }
+
+    // ========================================================================
+    // Keyword Items
+    // ========================================================================
+
+    private addKeywordItems(itemsMap: Map<string, vscode.CompletionItem>, context: ParsedContext): void {
+        const keywords = KEYWORDS_BY_CONTEXT[context.context] || [];
 
         for (const kw of keywords) {
-            const item = new vscode.CompletionItem(kw.keyword, vscode.CompletionItemKind.Keyword);
-            item.detail = kw.detail;
-            item.documentation = new vscode.MarkdownString(kw.description);
-            item.insertText = kw.insertText || kw.keyword;
-            item.sortText = `0_${kw.keyword}`;
-            items.push(item);
+            const item = this.factory.createKeyword(kw);
+            itemsMap.set(kw.keyword, item);
         }
 
-        items.push(...this.getSpecialValueCompletions(parsedContext));
-
-        if (this.requiresIdentifier(parsedContext)) {
-            const identifierItems = await this.getElementIdentifierCompletion(document, document.offsetAt(vscode.window.activeTextEditor!.selection.active), currentWord);
-            items.push(...identifierItems);
+        if (this.isAfterEqualsSign(context)) {
+            this.addElementTypeItems(itemsMap);
         }
-
-        if (currentWord) {
-            return items.filter(item =>
-                item.label.toString().toLowerCase().startsWith(currentWord.toLowerCase())
-            );
-        }
-
-        return items;
     }
 
-    private getSpecialValueCompletions(parsedContext: ParsedContext): vscode.CompletionItem[] {
-        const items: vscode.CompletionItem[] = [];
-        const previousKeyword = parsedContext.previousKeyword?.toLowerCase();
-
-        if (previousKeyword === 'shape') {
-            for (const shape of SHAPE_VALUES) {
-                const item = new vscode.CompletionItem(shape, vscode.CompletionItemKind.EnumMember);
-                item.sortText = `1_${shape}`;
-                items.push(item);
+    private addElementTypeItems(itemsMap: Map<string, vscode.CompletionItem>): void {
+        for (const type of ELEMENT_TYPE_KEYWORDS) {
+            if (!itemsMap.has(type)) {
+                itemsMap.set(type, this.factory.createElementType(type));
             }
         }
-
-        if (previousKeyword === 'autolayout') {
-            for (const dir of AUTOLAYOUT_DIRECTIONS) {
-                const item = new vscode.CompletionItem(dir, vscode.CompletionItemKind.EnumMember);
-                item.sortText = `1_${dir}`;
-                items.push(item);
-            }
-        }
-
-        if (previousKeyword === 'border') {
-            for (const style of BORDER_STYLES) {
-                const item = new vscode.CompletionItem(style, vscode.CompletionItemKind.EnumMember);
-                item.sortText = `1_${style}`;
-                items.push(item);
-            }
-        }
-
-        if (previousKeyword === 'routing') {
-            for (const style of ROUTING_STYLES) {
-                const item = new vscode.CompletionItem(style, vscode.CompletionItemKind.EnumMember);
-                item.sortText = `1_${style}`;
-                items.push(item);
-            }
-        }
-
-        if (previousKeyword === 'scope') {
-            for (const scope of SCOPE_VALUES) {
-                const item = new vscode.CompletionItem(scope, vscode.CompletionItemKind.EnumMember);
-                item.sortText = `1_${scope}`;
-                items.push(item);
-            }
-        }
-
-        if (previousKeyword === 'visibility') {
-            for (const vis of VISIBILITY_VALUES) {
-                const item = new vscode.CompletionItem(vis, vscode.CompletionItemKind.EnumMember);
-                item.sortText = `1_${vis}`;
-                items.push(item);
-            }
-        }
-
-        const booleanKeywords = ['metadata', 'description', 'opacity'];
-        if (previousKeyword && booleanKeywords.includes(previousKeyword)) {
-            const itemTrue = new vscode.CompletionItem('true', vscode.CompletionItemKind.Value);
-            const itemFalse = new vscode.CompletionItem('false', vscode.CompletionItemKind.Value);
-            itemTrue.sortText = '1_true';
-            itemFalse.sortText = '1_false';
-            items.push(itemTrue, itemFalse);
-        }
-
-        return items;
     }
 
-    private requiresIdentifier(parsedContext: ParsedContext): boolean {
-        const previousKeyword = parsedContext.previousKeyword?.toLowerCase();
-
-        const identifierKeywords = [
-            'systemcontext', 'container', 'component', 'filtered',
-            'dynamic', 'deployment', 'image'
-        ];
-
-        if (previousKeyword && identifierKeywords.includes(previousKeyword)) {
-            return true;
-        }
-
-        return false;
+    private isAfterEqualsSign(context: ParsedContext): boolean {
+        const prevKeyword = context.previousKeyword?.toLowerCase();
+        return prevKeyword !== undefined && KEYWORDS_AFTER_EQUALS.includes(prevKeyword as any);
     }
 
-    private async getElementIdentifierCompletion(
+    // ========================================================================
+    // Special Value Items
+    // ========================================================================
+
+    private addSpecialValueItems(itemsMap: Map<string, vscode.CompletionItem>, context: ParsedContext): void {
+        const prevKeyword = context.previousKeyword?.toLowerCase();
+        if (!prevKeyword) return;
+
+        this.addValueProviders(itemsMap, prevKeyword);
+        this.addBooleanValues(itemsMap, prevKeyword);
+    }
+
+    private addValueProviders(itemsMap: Map<string, vscode.CompletionItem>, prevKeyword: string): void {
+        const valueMap: Record<string, readonly string[]> = {
+            'shape': SHAPE_VALUES,
+            'autolayout': AUTOLAYOUT_DIRECTIONS,
+            'border': BORDER_STYLES,
+            'routing': ROUTING_STYLES,
+            'scope': SCOPE_VALUES,
+            'visibility': VISIBILITY_VALUES
+        };
+
+        const values = valueMap[prevKeyword];
+        if (values) {
+            for (const value of values) {
+                itemsMap.set(value, this.factory.createEnumMember(value));
+            }
+        }
+    }
+
+    private addBooleanValues(itemsMap: Map<string, vscode.CompletionItem>, prevKeyword: string): void {
+        if (KEYWORDS_WITH_BOOLEAN_VALUES.includes(prevKeyword as any)) {
+            itemsMap.set('true', this.factory.createValue('true'));
+            itemsMap.set('false', this.factory.createValue('false'));
+        }
+    }
+
+    // ========================================================================
+    // Identifier Items
+    // ========================================================================
+
+    private async addIdentifierItems(
+        itemsMap: Map<string, vscode.CompletionItem>,
+        context: ParsedContext,
         document: vscode.TextDocument,
-        offset: number,
+        currentWord: string
+    ): Promise<void> {
+        if (!this.requiresIdentifier(context)) return;
+
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) return;
+
+        const offset = document.offsetAt(activeEditor.selection.active);
+        const identifierItems = await this.getElementCompletionItems(document, offset, currentWord);
+
+        for (const item of identifierItems) {
+            const label = item.label.toString();
+            if (!itemsMap.has(label)) {
+                itemsMap.set(label, item);
+            }
+        }
+    }
+
+    private requiresIdentifier(context: ParsedContext): boolean {
+        const prevKeyword = context.previousKeyword?.toLowerCase();
+        return prevKeyword !== undefined && KEYWORDS_REQUIRING_IDENTIFIER.includes(prevKeyword as any);
+    }
+
+    // ========================================================================
+    // Element Completion
+    // ========================================================================
+
+    private async getElementCompletionItems(
+        document: vscode.TextDocument,
+        _offset: number,
         currentWord: string
     ): Promise<vscode.CompletionItem[]> {
-        const items: vscode.CompletionItem[] = [];
-        const text = document.getText();
+        const itemsMap = new Map<string, vscode.CompletionItem>();
 
+        // Add special identifiers
+        for (const id of SPECIAL_IDENTIFIERS) {
+            itemsMap.set(id, this.factory.createConstant(id));
+        }
+
+        // Add identifiers from document
+        const documentIdentifiers = this.parseDocumentIdentifiers(document.getText());
+        for (const id of documentIdentifiers) {
+            if (!itemsMap.has(id)) {
+                itemsMap.set(id, this.factory.createReference(id));
+            }
+        }
+
+        // Add identifiers from included documents
+        await this.addIncludedDocumentIdentifiers(itemsMap, document);
+
+        const items = Array.from(itemsMap.values());
+        return this.filterByCurrentWord(items, currentWord);
+    }
+
+    private parseDocumentIdentifiers(text: string): Set<string> {
+        const identifiers = new Set<string>();
         const patterns = [
             /person\s+(\w+)/gi,
             /softwaresystem\s+(\w+)/gi,
@@ -175,75 +317,57 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
             /element\s+(\w+)/gi,
         ];
 
-        const identifiers = new Set<string>();
-
         for (const pattern of patterns) {
             let match;
             while ((match = pattern.exec(text)) !== null) {
-                if (match[1]) {
-                    identifiers.add(match[1]);
-                }
+                if (match[1]) identifiers.add(match[1]);
             }
         }
 
+        return identifiers;
+    }
+
+    private async addIncludedDocumentIdentifiers(
+        itemsMap: Map<string, vscode.CompletionItem>,
+        document: vscode.TextDocument
+    ): Promise<void> {
         const includeResolver = getIncludeResolver();
-        const includedDocs = await includeResolver.getIncludedDocuments(document.uri, text);
+        const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
 
         for (const doc of includedDocs) {
             const parser = new DslParser(doc.content, doc.uri);
             const parsed = parser.parse();
 
             for (const [identifier, definition] of parsed.definitions) {
-                identifiers.add(identifier);
-                const item = new vscode.CompletionItem(identifier, vscode.CompletionItemKind.Reference);
-                item.detail = `${definition.type} (from ${doc.uri.fsPath})`;
-                item.sortText = `2_${identifier}`;
-                items.push(item);
+                if (!itemsMap.has(identifier)) {
+                    const item = this.factory.createReference(
+                        identifier,
+                        `${definition.type} (from ${doc.uri.fsPath})`
+                    );
+                    itemsMap.set(identifier, item);
+                }
             }
         }
-
-        for (const id of identifiers) {
-            const existingItem = items.find(item => item.label === id);
-            if (!existingItem) {
-                const item = new vscode.CompletionItem(id, vscode.CompletionItemKind.Reference);
-                item.sortText = `2_${id}`;
-                items.push(item);
-            }
-        }
-
-        const specialIds = ['*', 'this'];
-        for (const specialId of specialIds) {
-            const item = new vscode.CompletionItem(specialId, vscode.CompletionItemKind.Constant);
-            item.sortText = `0_${specialId}`;
-            items.push(item);
-        }
-
-        if (currentWord) {
-            return items.filter(item =>
-                item.label.toString().toLowerCase().startsWith(currentWord.toLowerCase())
-            );
-        }
-
-        return items;
     }
 
-    private getStringCompletion(parsedContext: ParsedContext, currentWord: string): vscode.CompletionItem[] {
-        const items: vscode.CompletionItem[] = [];
-        const previousKeyword = parsedContext.previousKeyword?.toLowerCase();
+    // ========================================================================
+    // String Completion
+    // ========================================================================
 
-        if (previousKeyword === 'url') {
-            const http = new vscode.CompletionItem('https://', vscode.CompletionItemKind.Value);
-            items.push(http);
+    private getStringCompletionItems(context: ParsedContext, currentWord: string): vscode.CompletionItem[] {
+        const items: vscode.CompletionItem[] = [];
+        const prevKeyword = context.previousKeyword?.toLowerCase();
+
+        if (prevKeyword === 'url') {
+            items.push(this.factory.createValue('https://'));
         }
 
-        if (previousKeyword === 'tags' || previousKeyword === 'tag') {
-            const commonTags = ['Element', 'Person', 'Software System', 'Container', 'Component'];
-            for (const tag of commonTags) {
-                const item = new vscode.CompletionItem(tag, vscode.CompletionItemKind.EnumMember);
-                items.push(item);
+        if (prevKeyword === 'tags' || prevKeyword === 'tag') {
+            for (const tag of COMMON_TAGS) {
+                items.push(this.factory.createEnumMember(tag));
             }
         }
 
-        return items;
+        return this.filterByCurrentWord(items, currentWord);
     }
 }

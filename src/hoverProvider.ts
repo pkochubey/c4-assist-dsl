@@ -64,7 +64,7 @@ export class DslHoverProvider implements vscode.HoverProvider {
         const definition = parsed.definitions.get(identifier);
 
         if (definition) {
-            const markdown = this.buildElementMarkdown(definition, parsed);
+            const markdown = this.buildElementMarkdown(definition);
             return new vscode.Hover(markdown, hoverRange);
         }
 
@@ -84,7 +84,7 @@ export class DslHoverProvider implements vscode.HoverProvider {
                 const includeDef = includeParsed.definitions.get(identifier);
 
                 if (includeDef) {
-                    const markdown = this.buildElementMarkdown(includeDef, includeParsed);
+                    const markdown = this.buildElementMarkdown(includeDef);
                     return new vscode.Hover(markdown, hoverRange);
                 }
             }
@@ -134,7 +134,7 @@ export class DslHoverProvider implements vscode.HoverProvider {
     /**
      * Build markdown documentation for an element
      */
-    private buildElementMarkdown(definition: ElementDefinition, parsed: { definitions: Map<string, ElementDefinition> }): vscode.MarkdownString {
+    private buildElementMarkdown(definition: ElementDefinition): vscode.MarkdownString {
         const typeLabel = this.getTypeLabel(definition.type);
         const markdown = new vscode.MarkdownString();
 
@@ -154,11 +154,6 @@ export class DslHoverProvider implements vscode.HoverProvider {
 
         markdown.appendMarkdown(`---\n\n`);
         markdown.appendMarkdown(`*Defined at line ${definition.line}*\n`);
-
-        const refCount = this.countReferences(definition.identifier, parsed);
-        if (refCount > 0) {
-            markdown.appendMarkdown(`*Referenced ${refCount} time(s)*\n`);
-        }
 
         return markdown;
     }
@@ -183,17 +178,5 @@ export class DslHoverProvider implements vscode.HoverProvider {
         };
 
         return labels[type] || `📄 ${type}`;
-    }
-
-    /**
-     * Count references to an identifier
-     */
-    private countReferences(identifier: string, parsed: { definitions: Map<string, ElementDefinition> }): number {
-        // This is a simplified count - in real implementation would use the parser's references
-        let count = 0;
-        for (const [key, def] of parsed.definitions) {
-            // Simple check - could be enhanced
-        }
-        return count;
     }
 }

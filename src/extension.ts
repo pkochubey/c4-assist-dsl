@@ -15,17 +15,10 @@ export function activate(context: vscode.ExtensionContext) {
         { language: 'structurizr-dsl', scheme: 'file' },
         completionProvider,
         ' ',
-        '\n',
-        '{',
         '>',
         '=',
         '(',
         '"'
-    );
-
-    const completionRegistrationAlways = vscode.languages.registerCompletionItemProvider(
-        { language: 'structurizr-dsl', scheme: 'file' },
-        completionProvider
     );
 
     const diagnosticProvider = new DslDiagnosticProvider(context);
@@ -90,7 +83,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         completionRegistration,
-        completionRegistrationAlways,
         definitionRegistration,
         renameRegistration,
         hoverRegistration,
