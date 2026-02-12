@@ -2,7 +2,7 @@
   "name": "c4-assist-dsl",
   "displayName": "C4 Assist DSL",
   "description": "Syntax highlighting, autocomplete, validation, formatting, and refactoring support for Structurizr DSL (C4 model)",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "publisher": "pkochubey",
   "author": {
     "name": "Pavel Kochubey"
