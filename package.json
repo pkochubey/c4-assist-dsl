@@ -97,11 +97,14 @@
     "publish": "vsce publish --no-update-package-manager"
   },
   "devDependencies": {
-    "@types/vscode": "^1.96.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "22.x",
+    "@types/vscode": "^1.96.0",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
     "eslint": "^9.15.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.6.3"
   }
 }

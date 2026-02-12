@@ -4,6 +4,8 @@
 
 VSCode extension for Structurizr DSL (C4 model) providing syntax highlighting, autocomplete, validation, formatting, and refactoring support.
 
+**Core Principle:** Test-Driven Development (TDD). Always write/update tests in `src/*.test.ts` before modifying implementation.
+
 **Language ID:** `structurizr-dsl`
 **File Extension:** `.dsl`
 

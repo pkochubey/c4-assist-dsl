@@ -18,7 +18,7 @@
 | `keywordDocumentation.ts` | Keyword docs                 | `KEYWORD_DOCUMENTATION`                                    |
 | `includeResolver.ts`      | !include handling            | `IncludeResolver.getIncludedDocuments()`                   |
 
-## Common Tasks
+## Common Tasks (TDD Required: Write tests before code!)
 
 ### Add new keyword to autocomplete
 

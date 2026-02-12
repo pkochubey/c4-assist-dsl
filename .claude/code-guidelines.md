@@ -1,4 +1,14 @@
-# Code Style Guidelines for C4 Assist DSL
+# Code Style and Workflow Guidelines for C4 Assist DSL
+
+## TDD Workflow (Mandatory)
+
+Before writing or modifying any implementation code, you MUST follow these steps:
+
+1.  **Check for existing tests**: Look for a corresponding `.test.ts` file for the module you are about to change.
+2.  **Write/Update tests FIRST**: Define the expected behavior by adding new test cases or updating existing ones.
+3.  **Verify test failure**: Run the tests to ensure they fail as expected (Red phase).
+4.  **Implement/Refactor**: Write the code to make the tests pass (Green phase).
+5.  **Verify test success**: Run the tests again to ensure everything works and no regressions were introduced.
 
 ## Architecture Rules
 
