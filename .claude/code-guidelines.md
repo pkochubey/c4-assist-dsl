@@ -1,8 +1,48 @@
 # Code Style Guidelines for C4 Assist DSL
 
+## Architecture Rules
+
+### 1. Use `parseDocumentWithIncludes()` for cross-file data
+
+```typescript
+// GOOD ✅
+import { parseDocumentWithIncludes } from './workspaceIndex';
+const { allDefinitions } = await parseDocumentWithIncludes(document);
+
+// BAD ❌ — duplicates parse+include logic
+const parser = new DslParser(document.getText(), document.uri);
+const parsed = parser.parse();
+const resolver = getIncludeResolver();
+const docs = await resolver.getIncludedDocuments(...);
+for (const doc of docs) { /* parse each... */ }
+```
+
+### 2. Add shared view keywords to `BASE_VIEW_KEYWORDS`
+
+```typescript
+// GOOD ✅ — single source of truth
+const BASE_VIEW_KEYWORDS: KeywordInfo[] = [
+    { keyword: 'include', ... },
+    // add new shared keyword here
+];
+
+// BAD ❌ — copy-pasting to 8 view contexts
+[ContextType.SystemLandscapeView]: [
+    { keyword: 'include', ... },
+    { keyword: 'newKeyword', ... }, // duplicated in every view
+],
+```
+
+### 3. Use `DslParser` for identifier extraction
+
+Do not write custom regex patterns duplicating `DslParser.parse()` logic.
+
+---
+
 ## Comment Rules
 
 ### BAD ❌
+
 ```typescript
 // Find identifiers in current document
 for (const pattern of patterns) {
@@ -13,17 +53,14 @@ for (const pattern of patterns) {
 if (isReference) {
 ```
 
-```typescript
-// +1 for newline
-currentOffset += line.length + 1;
-```
-
 ### GOOD ✅
+
 No comments for obvious things. Code should be self-documenting.
 
 ## When to Use Comments
 
 ### GOOD ✅ - JSDoc for functions
+
 ```typescript
 /**
  * Parse !include directives from DSL text
@@ -33,64 +70,43 @@ parseIncludeDirectives(text: string, documentUri: vscode.Uri): IncludeDirective[
 ```
 
 ### GOOD ✅ - TODO/FIXME notes
+
 ```typescript
 // This is a simplified count - in real implementation would use the parser's references
 private countReferences(identifier: string, parsed): number {
 ```
 
-```typescript
-// Approximate end position
-const endPosition = new vscode.Position(includeDef.line - 1, 100);
-```
+### GOOD ✅ - Non-obvious logic
 
-### GOOD ✅ - Non-obvious logic explanations
 ```typescript
 // Skip include directives to avoid parsing file paths as identifiers
-if (trimmed.startsWith('!include')) {
-    return;
+if (trimmed.startsWith("!include")) {
+  return;
 }
 ```
+
+---
 
 ## Code Structure
 
 ### Function Documentation
+
 Every exported function/class MUST have JSDoc explaining:
+
 - What it does
 - Parameters (if any)
-- Return value (if any)
 - Important patterns or edge cases
 
-```typescript
-/**
- * Manages DSL file includes and provides cached access to included files
- */
-export class IncludeResolver {
-```
-
 ### Inline Comments
+
 Only add inline comments when:
+
 1. Explaining WHY (not WHAT)
 2. Documenting a TODO/FIXME
 3. Explaining non-obvious logic
 4. Warning about edge cases or limitations
 
-## Examples
-
-### Self-Documenting Code (No comments needed)
-```typescript
-const identifiers = new Set<string>();
-
-if (this.cache.has(filePath)) {
-    return this.cache.get(filePath);
-}
-```
-
-### Complex Logic (Comment helpful)
-```typescript
-// Recursively resolve nested includes to get all transitive dependencies
-const nestedIncludes = await this.getIncludedDocuments(doc.uri, doc.content);
-documents.push(...nestedIncludes);
-```
+---
 
 ## Quick Checklist Before Adding Comments
 
