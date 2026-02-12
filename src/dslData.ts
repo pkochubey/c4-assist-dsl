@@ -37,6 +37,16 @@ export enum ContextType {
     Global = 'global',
 }
 
+const BASE_VIEW_KEYWORDS: KeywordInfo[] = [
+    { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
+    { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
+    { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
+    { keyword: 'default', description: 'Mark as default view', detail: 'default' },
+    { keyword: 'title', description: 'View title', detail: 'title "Title"' },
+    { keyword: 'description', description: 'View description', detail: 'description "text"' },
+    { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
+];
+
 export const KEYWORDS_BY_CONTEXT: Record<ContextType, KeywordInfo[]> = {
     [ContextType.Global]: [
         { keyword: 'workspace', description: 'Define a workspace', detail: 'workspace <name> [description] { ... }' },
@@ -188,88 +198,41 @@ export const KEYWORDS_BY_CONTEXT: Record<ContextType, KeywordInfo[]> = {
         { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
     ],
 
+
     [ContextType.SystemLandscapeView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
+        ...BASE_VIEW_KEYWORDS,
         { keyword: 'animation', description: 'Animation steps', detail: 'animation { identifier ... }' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
     ],
 
     [ContextType.SystemContextView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
+        ...BASE_VIEW_KEYWORDS,
         { keyword: 'animation', description: 'Animation steps', detail: 'animation { identifier ... }' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
     ],
 
     [ContextType.ContainerView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
+        ...BASE_VIEW_KEYWORDS,
         { keyword: 'animation', description: 'Animation steps', detail: 'animation { identifier ... }' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
     ],
 
     [ContextType.ComponentView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
+        ...BASE_VIEW_KEYWORDS,
         { keyword: 'animation', description: 'Animation steps', detail: 'animation { identifier ... }' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
     ],
 
     [ContextType.FilteredView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
+        ...BASE_VIEW_KEYWORDS,
     ],
 
     [ContextType.DynamicView]: [
-        { keyword: 'include', description: 'Include relationships', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude relationships', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
+        ...BASE_VIEW_KEYWORDS,
     ],
 
     [ContextType.DeploymentView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
+        ...BASE_VIEW_KEYWORDS,
     ],
 
     [ContextType.CustomView]: [
-        { keyword: 'include', description: 'Include elements', detail: 'include <*|identifier|expression> ...' },
-        { keyword: 'exclude', description: 'Exclude elements', detail: 'exclude <identifier|expression> ...' },
-        { keyword: 'autoLayout', description: 'Auto layout', detail: 'autoLayout [tb|bt|lr|rl] [rankSep] [nodeSep]' },
-        { keyword: 'default', description: 'Mark as default view', detail: 'default' },
-        { keyword: 'title', description: 'View title', detail: 'title "Title"' },
-        { keyword: 'description', description: 'View description', detail: 'description "text"' },
-        { keyword: 'properties', description: 'View properties', detail: 'properties { ... }' },
+        ...BASE_VIEW_KEYWORDS,
     ],
 
     [ContextType.Styles]: [

@@ -36,13 +36,15 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument(event => {
         if (event.document.languageId === 'structurizr-dsl') {
-            const timeout = setTimeout(() => {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            debounceTimer = setTimeout(() => {
                 diagnosticProvider.validateDocument(event.document);
             }, 500);
-
-            context.subscriptions.push({ dispose: () => clearTimeout(timeout) });
         }
     });
 

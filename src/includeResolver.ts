@@ -5,8 +5,6 @@ import { IncludeDirective } from './dslParser';
 export interface IncludedDocument {
     uri: vscode.Uri;
     content: string;
-    definitions: Map<string, any>;
-    references: any[];
 }
 
 /**
@@ -74,8 +72,6 @@ export class IncludeResolver {
             const doc: IncludedDocument = {
                 uri,
                 content: text,
-                definitions: new Map(),
-                references: []
             };
 
             this.cache.set(filePath, doc);
@@ -89,7 +85,16 @@ export class IncludeResolver {
     /**
      * Get all included documents for a given document
      */
-    async getIncludedDocuments(documentUri: vscode.Uri, documentText: string): Promise<IncludedDocument[]> {
+    async getIncludedDocuments(
+        documentUri: vscode.Uri,
+        documentText: string,
+        visited: Set<string> = new Set()
+    ): Promise<IncludedDocument[]> {
+        if (visited.has(documentUri.fsPath)) {
+            return [];
+        }
+        visited.add(documentUri.fsPath);
+
         const includes = this.parseIncludeDirectives(documentText, documentUri);
         const documents: IncludedDocument[] = [];
 
@@ -97,7 +102,7 @@ export class IncludeResolver {
             const doc = await this.getIncludedDocument(include.filePath);
             if (doc) {
                 documents.push(doc);
-                const nestedIncludes = await this.getIncludedDocuments(doc.uri, doc.content);
+                const nestedIncludes = await this.getIncludedDocuments(doc.uri, doc.content, visited);
                 documents.push(...nestedIncludes);
             }
         }

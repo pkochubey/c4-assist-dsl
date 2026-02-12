@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { DslParser, ElementDefinition } from './dslParser';
+import { ElementDefinition } from './dslParser';
 import { KEYWORD_DOCUMENTATION } from './keywordDocumentation';
-import { getIncludeResolver } from './includeResolver';
+import { parseDocumentWithIncludes } from './workspaceIndex';
 
 /**
  * Provides hover documentation for Structurizr DSL elements
@@ -12,16 +12,6 @@ export class DslHoverProvider implements vscode.HoverProvider {
         position: vscode.Position,
         _token: vscode.CancellationToken
     ): Promise<vscode.Hover | undefined> {
-        const config = vscode.workspace.getConfiguration('c4AssistDsl');
-        const enabled = config.get<boolean>('completion.enable', true);
-
-        if (!enabled) {
-            return undefined;
-        }
-
-        const parser = new DslParser(document.getText(), document.uri);
-        const parsed = parser.parse();
-
         const wordRange = document.getWordRangeAtPosition(position, /[\w.]+/);
         let identifier = '';
         let hoverRange = wordRange;
@@ -54,40 +44,19 @@ export class DslHoverProvider implements vscode.HoverProvider {
         }
 
         if (identifier === '->') {
-            const keywordDoc = KEYWORD_DOCUMENTATION['->'];
-            if (keywordDoc) {
-                const markdown = this.buildKeywordMarkdown(keywordDoc);
+            const arrowDoc = KEYWORD_DOCUMENTATION['->'];
+            if (arrowDoc) {
+                const markdown = this.buildKeywordMarkdown(arrowDoc);
                 return new vscode.Hover(markdown, hoverRange);
             }
         }
 
-        const definition = parsed.definitions.get(identifier);
+        const { allDefinitions } = await parseDocumentWithIncludes(document);
+        const definition = allDefinitions.get(identifier);
 
         if (definition) {
             const markdown = this.buildElementMarkdown(definition);
             return new vscode.Hover(markdown, hoverRange);
-        }
-
-        const isReference = parsed.references.some(ref =>
-            ref.identifier === identifier &&
-            position.line === ref.line - 1
-        );
-
-        if (isReference) {
-            const includeResolver = getIncludeResolver();
-            const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
-
-            for (const doc of includedDocs) {
-                const includeParser = new DslParser(doc.content, doc.uri);
-                const includeParsed = includeParser.parse();
-
-                const includeDef = includeParsed.definitions.get(identifier);
-
-                if (includeDef) {
-                    const markdown = this.buildElementMarkdown(includeDef);
-                    return new vscode.Hover(markdown, hoverRange);
-                }
-            }
         }
 
         return undefined;
@@ -116,9 +85,7 @@ export class DslHoverProvider implements vscode.HoverProvider {
 
         if (keywordDoc.permittedChildren && keywordDoc.permittedChildren.length > 0) {
             markdown.appendMarkdown('**Permitted children:** ');
-            const children = keywordDoc.permittedChildren.map(c => {
-                return c.startsWith('!') ? `\`${c}\`` : `\`${c}\``;
-            }).join(', ');
+            const children = keywordDoc.permittedChildren.map(c => `\`${c}\``).join(', ');
             markdown.appendMarkdown(children + '\n\n');
         }
 

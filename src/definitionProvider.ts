@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { DslParser, ElementDefinition } from './dslParser';
-import { getIncludeResolver } from './includeResolver';
+import { parseDocumentWithIncludes } from './workspaceIndex';
 
 /**
  * Provides Go to Definition functionality for Structurizr DSL
@@ -19,42 +18,25 @@ export class DslDefinitionProvider implements vscode.DefinitionProvider {
 
         const identifier = document.getText(wordRange);
 
-        const parser = new DslParser(document.getText(), document.uri);
-        const parsed = parser.parse();
+        const { mainDocument: parsed, allDefinitions } = await parseDocumentWithIncludes(document);
 
-        const definition = parsed.definitions.get(identifier);
-
-        if (definition) {
-            const defPosition = document.positionAt(definition.startOffset);
-            const endPosition = document.positionAt(definition.endOffset);
-
+        // Check main document first
+        const localDef = parsed.definitions.get(identifier);
+        if (localDef) {
+            const defPosition = document.positionAt(localDef.startOffset);
+            const endPosition = document.positionAt(localDef.endOffset);
             return new vscode.Location(document.uri, new vscode.Range(defPosition, endPosition));
         }
 
-        const isReference = parsed.references.some(ref =>
-            ref.identifier === identifier &&
-            position.line === ref.line - 1
-        );
-
-        if (isReference) {
-            const includeResolver = getIncludeResolver();
-            const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
-
-            for (const doc of includedDocs) {
-                const includeParser = new DslParser(doc.content, doc.uri);
-                const includeParsed = includeParser.parse();
-
-                const includeDef = includeParsed.definitions.get(identifier);
-
-                if (includeDef) {
-                    const defPosition = new vscode.Position(includeDef.line - 1, 0);
-                    const endPosition = new vscode.Position(includeDef.line - 1, 100); // Approximate end
-
-                    return new vscode.Location(doc.uri, new vscode.Range(defPosition, endPosition));
-                }
-            }
+        // Check included files
+        const includedDef = allDefinitions.get(identifier);
+        if (includedDef && includedDef.sourceUri) {
+            const defPosition = new vscode.Position(includedDef.line - 1, 0);
+            const endPosition = new vscode.Position(includedDef.line - 1, 100);
+            return new vscode.Location(includedDef.sourceUri, new vscode.Range(defPosition, endPosition));
         }
 
         return undefined;
     }
 }
+

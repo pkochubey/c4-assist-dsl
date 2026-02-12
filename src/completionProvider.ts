@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { DslContextParser, ParsedContext } from './dslContext';
-import { DslParser } from './dslParser';
 import {
     KEYWORDS_BY_CONTEXT,
     SHAPE_VALUES,
@@ -11,7 +10,7 @@ import {
     VISIBILITY_VALUES,
     KeywordInfo
 } from './dslData';
-import { getIncludeResolver } from './includeResolver';
+import { parseDocumentWithIncludes } from './workspaceIndex';
 
 // ============================================================================
 // Constants
@@ -290,64 +289,19 @@ export class DslCompletionProvider implements vscode.CompletionItemProvider {
             itemsMap.set(id, this.factory.createConstant(id));
         }
 
-        // Add identifiers from document
-        const documentIdentifiers = this.parseDocumentIdentifiers(document.getText());
-        for (const id of documentIdentifiers) {
-            if (!itemsMap.has(id)) {
-                itemsMap.set(id, this.factory.createReference(id));
+        // Add identifiers from document and all includes via centralized parser
+        const { allDefinitions } = await parseDocumentWithIncludes(document);
+        for (const [identifier, definition] of allDefinitions) {
+            if (!itemsMap.has(identifier)) {
+                const detail = definition.sourceUri && definition.sourceUri.fsPath !== document.uri.fsPath
+                    ? `${definition.type} (from ${definition.sourceUri.fsPath})`
+                    : undefined;
+                itemsMap.set(identifier, this.factory.createReference(identifier, detail));
             }
         }
-
-        // Add identifiers from included documents
-        await this.addIncludedDocumentIdentifiers(itemsMap, document);
 
         const items = Array.from(itemsMap.values());
         return this.filterByCurrentWord(items, currentWord);
-    }
-
-    private parseDocumentIdentifiers(text: string): Set<string> {
-        const identifiers = new Set<string>();
-        const patterns = [
-            /person\s+(\w+)/gi,
-            /softwaresystem\s+(\w+)/gi,
-            /container\s+(\w+)/gi,
-            /component\s+(\w+)/gi,
-            /deploymentnode\s+(\w+)/gi,
-            /infrastructurenode\s+(\w+)/gi,
-            /element\s+(\w+)/gi,
-        ];
-
-        for (const pattern of patterns) {
-            let match;
-            while ((match = pattern.exec(text)) !== null) {
-                if (match[1]) identifiers.add(match[1]);
-            }
-        }
-
-        return identifiers;
-    }
-
-    private async addIncludedDocumentIdentifiers(
-        itemsMap: Map<string, vscode.CompletionItem>,
-        document: vscode.TextDocument
-    ): Promise<void> {
-        const includeResolver = getIncludeResolver();
-        const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
-
-        for (const doc of includedDocs) {
-            const parser = new DslParser(doc.content, doc.uri);
-            const parsed = parser.parse();
-
-            for (const [identifier, definition] of parsed.definitions) {
-                if (!itemsMap.has(identifier)) {
-                    const item = this.factory.createReference(
-                        identifier,
-                        `${definition.type} (from ${doc.uri.fsPath})`
-                    );
-                    itemsMap.set(identifier, item);
-                }
-            }
-        }
     }
 
     // ========================================================================

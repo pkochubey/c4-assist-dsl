@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { DslParser, ElementDefinition, ParsedDocument } from './dslParser';
-import { getIncludeResolver } from './includeResolver';
+import { ElementDefinition, ParsedDocument } from './dslParser';
+import { parseDocumentWithIncludes } from './workspaceIndex';
 
 /**
  * Diagnostic provider for Structurizr DSL validation
@@ -26,23 +26,7 @@ export class DslDiagnosticProvider {
         }
 
         const diagnostics: vscode.Diagnostic[] = [];
-        const parser = new DslParser(document.getText(), document.uri);
-        const parsed = parser.parse();
-
-        const includeResolver = getIncludeResolver();
-        const includedDocs = await includeResolver.getIncludedDocuments(document.uri, document.getText());
-        const allDefinitions = new Map<string, ElementDefinition>(parsed.definitions);
-
-        for (const doc of includedDocs) {
-            const includeParser = new DslParser(doc.content, doc.uri);
-            const includeParsed = includeParser.parse();
-
-            for (const [identifier, definition] of includeParsed.definitions) {
-                if (!allDefinitions.has(identifier)) {
-                    allDefinitions.set(identifier, definition);
-                }
-            }
-        }
+        const { mainDocument: parsed, allDefinitions } = await parseDocumentWithIncludes(document);
 
         diagnostics.push(...this.checkDuplicateIdentifiers(parsed));
         diagnostics.push(...this.checkUndefinedReferences(parsed, allDefinitions));
@@ -93,10 +77,7 @@ export class DslDiagnosticProvider {
 
         for (const ref of parsed.references) {
             if (!definedIdentifiers.has(ref.identifier)) {
-                const range = new vscode.Range(
-                    new vscode.Position(ref.line - 1, ref.startOffset),
-                    new vscode.Position(ref.line - 1, ref.endOffset)
-                );
+                const range = this.createRange(parsed.lines, ref.line - 1, ref.identifier);
 
                 const diagnostic = new vscode.Diagnostic(
                     range,
@@ -124,19 +105,6 @@ export class DslDiagnosticProvider {
 
             if (trimmed.startsWith('//') || trimmed.startsWith('#') || !trimmed) {
                 continue;
-            }
-
-            const openCount = (line.match(/\{/g) || []).length;
-            const closeCount = (line.match(/\}/g) || []).length;
-
-            if (openCount > 0 || closeCount > 0) {
-                // Could track brace balance across lines, but for now we'll do simpler checks
-            }
-
-            const quoteCount = (line.match(/"/g) || []).length;
-            if (quoteCount % 2 !== 0 && !trimmed.includes('\\')) {
-                // Odd number of quotes might indicate unclosed string
-                // But this could be a false positive if there are escaped quotes
             }
 
             const invalidIdentMatch = trimmed.match(/=\s*([a-zA-Z_]\w*)\s*=\s*/);
