@@ -107,7 +107,19 @@ export class DslFormatterProvider implements vscode.DocumentFormattingEditProvid
     ): string {
         const indent = indentChar.repeat(depth * indentSize);
 
-        let formatted = line.replace(/\s+/g, ' ');
+        // Quoted strings are content, not syntax: the whitespace and operator
+        // normalisation below must not reach inside them. Structurizr view
+        // expressions are quoted strings, so padding the operator turns
+        // include "element.tag==MDR" into include "element.tag == MDR", which
+        // the workspace parser rejects. Descriptions lose their spacing the
+        // same way. Stash the literals, format the syntax, restore them.
+        const literals: string[] = [];
+        let formatted = line.replace(/"[^"]*"/g, (literal) => {
+            literals.push(literal);
+            return '@@' + (literals.length - 1) + '@@';
+        });
+
+        formatted = formatted.replace(/\s+/g, ' ');
 
         // Format -> but don't add leading space if line starts with ->
         if (formatted.startsWith('->')) {
@@ -119,6 +131,11 @@ export class DslFormatterProvider implements vscode.DocumentFormattingEditProvid
         formatted = formatted.replace(/\s*=\s*/g, ' = ');
         formatted = formatted.replace(/\{\s+/, '{ ');
         formatted = formatted.replace(/\s+\}/g, ' }');
+
+        formatted = formatted.replace(
+            /@@(\d+)@@/g,
+            (_match, index) => literals[Number(index)]
+        );
 
         return indent + formatted;
     }
