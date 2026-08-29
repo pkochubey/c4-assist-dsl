@@ -155,6 +155,54 @@ describe('DslFormatterProvider', () => {
     });
 
     // ========================================================================
+    // String Literals
+    // ========================================================================
+
+    describe('string literals', () => {
+        it('should not add spaces around == inside a view expression', () => {
+            const input = 'views {\ncontainer kaikoW {\ninclude "element.tag==MDR"\n}\n}';
+            const result = format(input);
+
+            expect(result).toContain('include "element.tag==MDR"');
+        });
+
+        it('should not add spaces around != inside a view expression', () => {
+            const input = 'views {\ncontainer kaikoW {\nexclude "element.tag!=MDR"\n}\n}';
+            const result = format(input);
+
+            expect(result).toContain('exclude "element.tag!=MDR"');
+        });
+
+        it('should preserve tag values containing spaces', () => {
+            const input = 'views {\ncontainer kaikoW {\nexclude "relationship.tag==Fan Out"\n}\n}';
+            const result = format(input);
+
+            expect(result).toContain('exclude "relationship.tag==Fan Out"');
+        });
+
+        it('should preserve consecutive spaces inside a quoted description', () => {
+            const input = 'model {\nperson "User" "Uses  the  system"\n}';
+            const result = format(input);
+
+            expect(result).toContain('"Uses  the  system"');
+        });
+
+        it('should preserve an arrow inside a quoted description', () => {
+            const input = 'model {\nperson "User" "Reads a->b mappings"\n}';
+            const result = format(input);
+
+            expect(result).toContain('"Reads a->b mappings"');
+        });
+
+        it('should still format assignments outside strings', () => {
+            const input = 'model {\nuser=person "User"\n}';
+            const result = format(input);
+
+            expect(result).toContain('user = person "User"');
+        });
+    });
+
+    // ========================================================================
     // Range Formatting
     // ========================================================================
 
